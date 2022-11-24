@@ -18,12 +18,12 @@ func Capture(x, y, width, height int) (img *image.RGBA, e error) {
 		err := recover()
 		if err != nil {
 			img = nil
-			e = fmt.Errorf("%v", err)
+			e = fmt.Errorf("recover: %v", err)
 		}
 	}()
 	c, err := xgb.NewConn()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("newconn: %v", err)
 	}
 	defer c.Close()
 
@@ -34,7 +34,7 @@ func Capture(x, y, width, height int) (img *image.RGBA, e error) {
 
 	reply, err := xinerama.QueryScreens(c).Reply()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("queryscreens: %v", err)
 	}
 
 	primary := reply.ScreenInfo[0]
@@ -55,7 +55,7 @@ func Capture(x, y, width, height int) (img *image.RGBA, e error) {
 	rect := image.Rect(0, 0, width, height)
 	img, err = util.CreateImage(rect)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("CreateImage: %v", err)
 	}
 
 	// Paint with opaque black
@@ -76,17 +76,17 @@ func Capture(x, y, width, height int) (img *image.RGBA, e error) {
 			shmSize := intersect.Dx() * intersect.Dy() * 4
 			shmId, err := shm.Get(shm.IPC_PRIVATE, shmSize, shm.IPC_CREAT|0777)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("shm.Get: %v", err)
 			}
 
 			seg, err := mshm.NewSegId(c)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("shm.NewSegId: %v", err)
 			}
 
 			data, err = shm.At(shmId, 0, 0)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("shm.At: %v", err)
 			}
 
 			mshm.Attach(c, seg, uint32(shmId), false)
@@ -100,14 +100,14 @@ func Capture(x, y, width, height int) (img *image.RGBA, e error) {
 				uint16(intersect.Dx()), uint16(intersect.Dy()), 0xffffffff,
 				byte(xproto.ImageFormatZPixmap), seg, 0).Reply()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("shm.GetImage: %v", err)
 			}
 		} else {
 			xImg, err := xproto.GetImage(c, xproto.ImageFormatZPixmap, xproto.Drawable(screen.Root),
 				int16(intersect.Min.X), int16(intersect.Min.Y),
 				uint16(intersect.Dx()), uint16(intersect.Dy()), 0xffffffff).Reply()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("xproto.GetImage: %v", err)
 			}
 
 			data = xImg.Data
